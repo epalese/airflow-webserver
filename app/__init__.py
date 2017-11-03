@@ -4,10 +4,10 @@ from flask import Flask, redirect
 from flask_appbuilder import SQLA, AppBuilder, IndexView, expose
 from flask_wtf.csrf import CSRFProtect
 
+
 """
  Logging configuration
 """
-
 # TODO: streamline logging
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
 logging.getLogger().setLevel(logging.DEBUG)
@@ -20,8 +20,10 @@ csrf.init_app(app)
 
 db = SQLA(app)
 
-########################### set up blueprints ##############################
 
+"""
+ Set up blueprints
+"""
 from airflow import api
 api.load_auth()
 from app.api.experimental import endpoints as e
@@ -36,15 +38,18 @@ if app.config['TESTING']:
 app.register_blueprint(e.api_experimental, url_prefix='/api/experimental')
 
 
-############################ set up index ##################################
-
+"""
+ Set up index page
+"""
 class AirflowIndexView(IndexView):
 	@expose("/")
 	def index(self):
 		return redirect('/home')
 
-############################# initialize app ###############################
 
+"""
+ Initialize appbuilder
+"""
 appbuilder = AppBuilder(
     app,
     db.session,
@@ -52,8 +57,10 @@ appbuilder = AppBuilder(
     indexview=AirflowIndexView
 )
 
-########################## Initialize Views #############################
 
+"""
+ Initialize views
+"""
 from app import views
 appbuilder.add_view_no_menu(views.HomeView())
 appbuilder.add_view_no_menu(views.Airflow())
@@ -81,5 +88,9 @@ appbuilder.add_link("Documentation", href='http://pythonhosted.org/airflow/', ca
 appbuilder.add_link("Github", href='https://github.com/apache/incubator-airflow', category="Docs")
 
 appbuilder.add_link('Version', href='/version', category='About', category_icon='fa-th')
-# initialize roles for RBAC
+
+
+"""
+ Initialize Role-Based Access Control
+"""
 from app import security

@@ -274,7 +274,7 @@
               })
               .on('click', function(d, i) {
                   if (d.count > 0)
-                    window.location = "/taskinstance/?flt1_dag_id_equals=" + d.dag_id + "&flt2_state_equals=" + d.state;
+                    window.location = "/taskinstance/list/?_flt_3_dag_id=" + d.dag_id + "&_flt_3_state=" + d.state;
               })
               .on('mouseover', function(d, i) {
                 if (d.count > 0) {

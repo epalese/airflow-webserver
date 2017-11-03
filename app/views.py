@@ -228,11 +228,10 @@ def data_profiling_required(f):
 
 def fqueued_slots(v, c, m, p):
     url = (
-        '/taskinstance/' +
-        '?flt1_pool_equals=' + m.pool +
-        '&flt2_state_equals=queued&sort=10&desc=1')
+        '/taskinstance/list/' +
+        '?_flt_3_pool=' + m.pool +
+        '&_flt_3_state==queued')
     return Markup("<a href='{0}'>{1}</a>".format(url, m.queued_slots()))
-
 
 def recurse_tasks(tasks, task_ids, dag_ids, task_id_to_dag):
     if isinstance(tasks, list):
@@ -293,6 +292,7 @@ class Airflow(AirflowBaseView):
         return False
 
     @expose('/chart_data')
+    @has_access
     @data_profiling_required
     @wwwutils.gzipped
     # @cache.cached(timeout=3600, key_prefix=wwwutils.make_cache_key)
@@ -435,6 +435,7 @@ class Airflow(AirflowBaseView):
         return wwwutils.json_response(payload)
 
     @expose('/chart')
+    @has_access
     @data_profiling_required
     def chart(self):
         session = settings.Session()
@@ -469,6 +470,7 @@ class Airflow(AirflowBaseView):
             embed=embed)
 
     @expose('/dag_stats')
+    @has_access
     def dag_stats(self):
         ds = models.DagStat
         session = Session()
@@ -503,6 +505,7 @@ class Airflow(AirflowBaseView):
         return wwwutils.json_response(payload)
 
     @expose('/task_stats')
+    @has_access
     def task_stats(self):
         TI = models.TaskInstance
         DagRun = models.DagRun
@@ -572,6 +575,7 @@ class Airflow(AirflowBaseView):
         return wwwutils.json_response(payload)
 
     @expose('/code')
+    @has_access
     def code(self):
         dag_id = request.args.get('dag_id')
         dag = dagbag.get_dag(dag_id)
@@ -590,6 +594,7 @@ class Airflow(AirflowBaseView):
             demo_mode=conf.getboolean('webserver', 'demo_mode'))
 
     @expose('/dag_details')
+    @has_access
     def dag_details(self):
         dag_id = request.args.get('dag_id')
         dag = dagbag.get_dag(dag_id)
@@ -622,10 +627,12 @@ class Airflow(AirflowBaseView):
             info=traceback.format_exc()), 500
 
     @expose('/noaccess')
+    @has_access
     def noaccess(self):
         return self.render('airflow/noaccess.html')
 
     @expose('/pickle_info')
+    @has_access
     def pickle_info(self):
         d = {}
         dag_id = request.args.get('dag_id')
@@ -636,6 +643,7 @@ class Airflow(AirflowBaseView):
         return wwwutils.json_response(d)
 
     @expose('/rendered')
+    @has_access
     @wwwutils.action_logging
     def rendered(self):
         dag_id = request.args.get('dag_id')
@@ -670,6 +678,7 @@ class Airflow(AirflowBaseView):
             title=title, )
 
     @expose('/log')
+    @has_access
     @wwwutils.action_logging
     def log(self):
         dag_id = request.args.get('dag_id')
@@ -707,6 +716,7 @@ class Airflow(AirflowBaseView):
             execution_date=execution_date, form=form)
 
     @expose('/task')
+    @has_access
     @wwwutils.action_logging
     def task(self):
         TI = models.TaskInstance
@@ -784,6 +794,7 @@ class Airflow(AirflowBaseView):
             dag=dag, title=title)
 
     @expose('/xcom')
+    @has_access
     @wwwutils.action_logging
     def xcom(self):
         dag_id = request.args.get('dag_id')
@@ -821,6 +832,7 @@ class Airflow(AirflowBaseView):
             dag=dag, title=title)
 
     @expose('/run')
+    @has_access
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def run(self):
@@ -879,6 +891,7 @@ class Airflow(AirflowBaseView):
         return redirect(origin)
 
     @expose('/trigger')
+    @has_access
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def trigger(self):
@@ -944,6 +957,7 @@ class Airflow(AirflowBaseView):
         return response
 
     @expose('/clear')
+    @has_access
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def clear(self):
@@ -973,6 +987,7 @@ class Airflow(AirflowBaseView):
                                    recursive=recursive, confirmed=confirmed)
 
     @expose('/dagrun_clear')
+    @has_access
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def dagrun_clear(self):
@@ -991,6 +1006,7 @@ class Airflow(AirflowBaseView):
                                    recursive=True, confirmed=confirmed)
 
     @expose('/blocked')
+    @has_access
     def blocked(self):
         session = settings.Session()
         DR = models.DagRun
@@ -1013,6 +1029,7 @@ class Airflow(AirflowBaseView):
         return wwwutils.json_response(payload)
 
     @expose('/dagrun_success')
+    @has_access
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def dagrun_success(self):
@@ -1050,6 +1067,7 @@ class Airflow(AirflowBaseView):
             return response
 
     @expose('/success')
+    @has_access
     @wwwutils.action_logging
     @wwwutils.notify_owner
     def success(self):
@@ -1102,6 +1120,7 @@ class Airflow(AirflowBaseView):
         return response
 
     @expose('/tree')
+    @has_access
     @wwwutils.gzipped
     @wwwutils.action_logging
     def tree(self):
@@ -1228,6 +1247,7 @@ class Airflow(AirflowBaseView):
             dag=dag, data=data, blur=blur)
 
     @expose('/graph')
+    @has_access
     @wwwutils.gzipped
     @wwwutils.action_logging
     def graph(self):
@@ -1341,6 +1361,7 @@ class Airflow(AirflowBaseView):
             edges=json.dumps(edges, indent=2), )
 
     @expose('/duration')
+    @has_access
     @wwwutils.action_logging
     def duration(self):
         session = settings.Session()
@@ -1446,6 +1467,7 @@ class Airflow(AirflowBaseView):
         )
 
     @expose('/tries')
+    @has_access
     @wwwutils.action_logging
     def tries(self):
         session = settings.Session()
@@ -1509,6 +1531,7 @@ class Airflow(AirflowBaseView):
         )
 
     @expose('/landing_times')
+    @has_access
     @wwwutils.action_logging
     def landing_times(self):
         session = settings.Session()
@@ -1585,6 +1608,7 @@ class Airflow(AirflowBaseView):
         )
 
     @expose('/paused', methods=['POST'])
+    @has_access
     @wwwutils.action_logging
     def paused(self):
         DagModel = models.DagModel
@@ -1604,6 +1628,7 @@ class Airflow(AirflowBaseView):
         return "OK"
 
     @expose('/refresh')
+    @has_access
     @wwwutils.action_logging
     def refresh(self):
         DagModel = models.DagModel
@@ -1623,6 +1648,7 @@ class Airflow(AirflowBaseView):
         return redirect(request.referrer)
 
     @expose('/refresh_all')
+    @has_access
     @wwwutils.action_logging
     def refresh_all(self):
         dagbag.collect_dags(only_if_updated=False)
@@ -1630,6 +1656,7 @@ class Airflow(AirflowBaseView):
         return redirect('/')
 
     @expose('/gantt')
+    @has_access
     @wwwutils.action_logging
     def gantt(self):
         session = settings.Session()
@@ -1693,6 +1720,7 @@ class Airflow(AirflowBaseView):
         )
 
     @expose('/object/task_instances')
+    @has_access
     @wwwutils.action_logging
     def task_instances(self):
         session = settings.Session()
@@ -1712,6 +1740,7 @@ class Airflow(AirflowBaseView):
         return json.dumps(task_instances)
 
     @expose('/variables/<form>', methods=["GET", "POST"])
+    @has_access
     @wwwutils.action_logging
     def variables(self, form):
         try:
@@ -1734,6 +1763,7 @@ class Airflow(AirflowBaseView):
                     "not found.").format(form), 404
 
     @expose('/varimport', methods=["GET", "POST"])
+    @has_access
     @wwwutils.action_logging
     def varimport(self):
         try:
@@ -1752,6 +1782,7 @@ class HomeView(AirflowBaseView):
     route_base = '/'
 
     @expose('home')
+    @has_access
     def index(self):
         session = Session()
         DM = models.DagModel
@@ -2394,6 +2425,7 @@ class VersionView(AirflowBaseView):
     route_base = '/'
 
     @expose('version')
+    @has_access
     def version(self):
         # Look at the version from setup.py
         try:
@@ -2422,6 +2454,7 @@ class ConfigurationView(AirflowBaseView):
     route_base = '/'
 
     @expose('configuration')
+    @has_access
     def conf(self):
         raw = request.args.get('raw') == "true"
         title = "Airflow Configuration"
@@ -2461,6 +2494,7 @@ class QueryView(AirflowBaseView):
 
     @wwwutils.gzipped
     @expose('query', methods=['POST', 'GET'])
+    @has_access
     def query(self):
         session = settings.Session()
         dbs = session.query(models.Connection).order_by(

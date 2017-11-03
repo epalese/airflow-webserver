@@ -331,10 +331,10 @@ function updateQueryStringParameter(uri, key, value) {
     });
 
     $("#btn_ti").click(function(){
-      url = "/taskinstance/" +
+      url = "/taskinstance/list/" +
         "?flt1_dag_id_equals=" + dag_id +
-        "&flt2_task_id_equals=" + task_id +
-        "&sort=3&desc=1";
+        "&_flt_3_task_id=" + task_id +
+        "&_oc_TaskInstanceModelView=execution_date";
       window.location = url;
     });
 
