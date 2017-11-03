@@ -38,7 +38,7 @@ Caveats
 
 What's Missing? (work-in-progress)
 --------------------------------------------------------------
-- Role/permission access for homepage
-- Default roles/permissions configurations (currently only Admin/Public roles available)
+- Default roles/permissions configurations is a demo of FAB's RBAC feature, which requires some fine-tuning
 - Miscellaneous features for all the model views (marked by the TODOs in the views.py file)
+- Testing/verification of integrations with various authentication backends
 - DAG-level access control
