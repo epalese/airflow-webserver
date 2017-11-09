@@ -43,7 +43,9 @@ from flask._compat import PY2
 from flask_appbuilder import BaseView, ModelView, IndexView, expose, has_access, AppBuilder
 from flask_appbuilder.models.sqla.interface import SQLAInterface
 from flask_appbuilder.actions import action
-from flask_appbuilder.fieldwidgets import BS3TextFieldWidget
+from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, BS3PasswordFieldWidget
+
+from flask_babel import lazy_gettext
 
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 from jinja2 import escape
@@ -2077,21 +2079,28 @@ class ConnectionModelView(AirflowModelView):
     # need to be prefixed with extra__ and then the conn_type ___ as in
     # extra__{conn_type}__name. You can also hide form elements and rename
     # others from the connection_form.js file
-    _extra_fields = {
-        'extra__jdbc__drv_path': StringField('Driver Path'),
-        'extra__jdbc__drv_clsname': StringField('Driver Class'),
-        'extra__google_cloud_platform__project': StringField('Project Id'),
-        'extra__google_cloud_platform__key_path': StringField('Keyfile Path'),
-        'extra__google_cloud_platform__keyfile_dict': PasswordField('Keyfile JSON'),
-        'extra__google_cloud_platform__scope': StringField('Scopes (comma separated)'),
+    add_form_extra_fields = {
+        'extra__jdbc__drv_path': StringField(
+            lazy_gettext('Driver Path'), widget=BS3TextFieldWidget()),
+        'extra__jdbc__drv_clsname': StringField(
+            lazy_gettext('Driver Class'), widget=BS3TextFieldWidget()),
+        'extra__google_cloud_platform__project': StringField(
+            lazy_gettext('Project Id'), widget=BS3TextFieldWidget()),
+        'extra__google_cloud_platform__key_path': StringField(
+            lazy_gettext('Keyfile Path'), widget=BS3TextFieldWidget()),
+        'extra__google_cloud_platform__keyfile_dict': PasswordField(
+            lazy_gettext('Keyfile JSON'), widget=BS3PasswordFieldWidget()),
+        'extra__google_cloud_platform__scope': StringField(
+            lazy_gettext('Scopes (comma separated)'), widget=BS3TextFieldWidget()),
     }
-
+    edit_form_extra_fields = add_form_extra_fields
     list_columns = ['conn_id', 'conn_type', 'host', 'port', 'is_encrypted', 'is_extra_encrypted']
-    add_columns = ['conn_id', 'conn_type', 'host', 'schema', 'login', 'password', 'port', 'extra'] 
-    edit_columns = ['conn_id', 'conn_type', 'host', 'schema', 'login', 'password', 'port', 'extra']
+    add_columns = ['conn_id', 'conn_type', 'host', 'schema', 'login', 'password', 'port', 'extra',
+                   'extra__jdbc__drv_path', 'extra__jdbc__drv_clsname', 'extra__google_cloud_platform__project',
+                   'extra__google_cloud_platform__key_path', 'extra__google_cloud_platform__keyfile_dict',
+                   'extra__google_cloud_platform__scope']
+    edit_columns = add_columns
     base_order = ('conn_id', 'asc')
-    add_form_extra_fields = {'extra2': TextField('Extra Field', description='foo', widget=BS3TextFieldWidget())}
-    edit_form_extra_fields = {'extra2': TextField('Extra Field', description='foo', widget=BS3TextFieldWidget())}
 
     @action('muldelete', 'Delete', 'Are you sure you want to delete selected records?', single=False)
     def action_muldelete(self, items):
