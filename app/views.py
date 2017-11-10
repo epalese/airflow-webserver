@@ -44,6 +44,7 @@ from flask_appbuilder import BaseView, ModelView, IndexView, expose, has_access,
 from flask_appbuilder.models.sqla.interface import SQLAInterface
 from flask_appbuilder.actions import action
 from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, BS3PasswordFieldWidget
+from flask_appbuilder.widgets import RenderTemplateWidget
 
 from flask_babel import lazy_gettext
 
@@ -96,26 +97,20 @@ if conf.getboolean('webserver', 'FILTER_BY_OWNER'):
     # filter_by_owner if authentication is enabled and filter_by_owner is true
     FILTER_BY_OWNER = not current_app.config['LOGIN_DISABLED']
 
-def log_url_formatter(log_url):
-    return Markup(
-        '<a href="{log_url}">'
-        '    <span class="glyphicon glyphicon-book" aria-hidden="true">'
-        '</span></a>').format(**locals())
-
-
-def task_instance_link(v, c, m, p):
-    dag_id = bleach.clean(m.dag_id)
-    task_id = bleach.clean(m.task_id)
+def task_instance_link(attr):
+    dag_id = bleach.clean(attr.get('dag_id'))
+    task_id = bleach.clean(attr.get('task_id'))
+    execution_date = attr.get('execution_date')
     url = url_for(
         'Airflow.task',
         dag_id=dag_id,
         task_id=task_id,
-        execution_date=m.execution_date.isoformat())
+        execution_date=execution_date.isoformat())
     url_root = url_for(
         'Airflow.graph',
         dag_id=dag_id,
         root=task_id,
-        execution_date=m.execution_date.isoformat())
+        execution_date=execution_date.isoformat())
     return Markup(
         """
         <span style="white-space: nowrap;">
@@ -127,32 +122,33 @@ def task_instance_link(v, c, m, p):
         </span>
         """.format(**locals()))
 
-
 def state_token(state):
     color = State.color(state)
     return Markup(
         '<span class="label" style="background-color:{color};">'
         '{state}</span>'.format(**locals()))
 
-def state_f(state):
+def state_f(attr):
+    state = attr.get('state')
     return state_token(state)
 
-def duration_f(v, c, m, p):
-    if m.end_date and m.duration:
-        return timedelta(seconds=m.duration)
+def nobr_f(field):
+    def nobr_f_helper(attr):
+        f = attr.get(field)
+        return Markup("<nobr>{}</nobr>".format(f))
+    return nobr_f_helper
 
+def datetime_f(field):
+    def datetime_f_helper(attr):
+        f = attr.get(field)
+        f = f.isoformat() if f else ''
+        if datetime.now().isoformat()[:4] == f[:4]:
+            f = f[5:]
+        return Markup("<nobr>{}</nobr>".format(f))
+    return datetime_f_helper
 
-def nobr_f(hostname):
-    return Markup("<nobr>{}</nobr>".format(hostname))
-
-def datetime_f(dt):
-    dt = dt.isoformat() if dt else ''
-    if datetime.now().isoformat()[:4] == dt[:4]:
-        dt = dt[5:]
-    return Markup("<nobr>{}</nobr>".format(dt))
-
-
-def dag_link(dag_id):
+def dag_link(attr):
+    dag_id = attr.get('dag_id')
     dag_id = bleach.clean(dag_id)
     url = url_for(
         'Airflow.graph',
@@ -160,25 +156,12 @@ def dag_link(dag_id):
     return Markup(
         '<a href="{}">{}</a>'.format(url, dag_id))
 
-
-def label_link(v, c, m, p):
-    try:
-        default_params = ast.literal_eval(m.default_params)
-    except:
-        default_params = {}
-    url = url_for(
-        'Airflow.chart', chart_id=m.id, iteration_no=m.iteration_no,
-        **default_params)
-    return Markup("<a href='{url}'>{m.label}</a>".format(**locals()))
-
-
 def pygment_html_render(s, lexer=lexers.TextLexer):
     return highlight(
         s,
         lexer(),
         HtmlFormatter(linenos=True),
     )
-
 
 def render(obj, lexer):
     out = ""
@@ -197,7 +180,6 @@ def render(obj, lexer):
 
 def wrapped_markdown(s):
     return '<div class="rich_doc">' + markdown.markdown(s) + "</div>"
-
 
 attr_renderer = {
     'bash_command': lambda x: render(x, lexers.BashLexer),
@@ -228,13 +210,6 @@ def data_profiling_required(f):
 
     return decorated_function
 
-def fqueued_slots(v, c, m, p):
-    url = (
-        '/taskinstance/list/' +
-        '?_flt_3_pool=' + m.pool +
-        '&_flt_3_state==queued')
-    return Markup("<a href='{0}'>{1}</a>".format(url, m.queued_slots()))
-
 def recurse_tasks(tasks, task_ids, dag_ids, task_id_to_dag):
     if isinstance(tasks, list):
         for task in tasks:
@@ -261,11 +236,9 @@ def get_chart_height(dag):
     """
     return 600 + len(dag.tasks) * 10
 
-'''
 ######################################################################################
-                                    BaseViews
+#                                    BaseViews
 ######################################################################################
-'''
 
 class AirflowBaseView(BaseView):
 
@@ -1937,22 +1910,35 @@ class HomeView(AirflowBaseView):
             auto_complete_data=auto_complete_data)
 
 
-'''
+
 ######################################################################################
-                                    ModelViews
+#                                    Widgets
 ######################################################################################
-'''
+
+
+class AirflowModelListWidget(RenderTemplateWidget):
+    template = 'airflow/model_list.html'
+
+
+######################################################################################
+#                                    ModelViews
+######################################################################################
+
+
 class AirflowModelView(ModelView):
     """
-    ModelView class for 
+    ModelView class for modifiable models
     """
     base_permissions = ['can_add', 'can_list', 'can_edit', 'can_delete']
+
+    list_widget = AirflowModelListWidget
+
     page_size = PAGE_SIZE
 
 
 class AirflowModelViewReadOnly(AirflowModelView):
     """
-    ModelView class for read-only operations
+    ModelView class for read-only models
     """
     base_permissions = ['can_list']
 
@@ -1973,7 +1959,6 @@ class CustomSQLAInterfaceWrapper(SQLAInterface):
         clean_column_names()
 
 
-# todo: fix formatters_columns to support multiple args
 # todo: add support for form_widget
 class SlaMissModelView(AirflowModelViewReadOnly):
     route_base='/slamiss'
@@ -1986,15 +1971,14 @@ class SlaMissModelView(AirflowModelViewReadOnly):
     search_columns = ['dag_id', 'task_id', 'email_sent', 'timestamp', 'execution_date']
     base_order = ('execution_date', 'desc')
     formatters_columns = {
-        # 'task_id': task_instance_link,
-        'execution_date': datetime_f,
-        'timestamp': datetime_f,
-        # 'dag_id': dag_link,
+        'task_id': task_instance_link,
+        'execution_date': datetime_f('execution_date'),
+        'timestamp': datetime_f('timestamp'),
+        'dag_id': dag_link,
     }
 
 
 # todo: fix add/edit page for chartview
-# todo: fix formatters_columns to support multiple args
 # todo: add support for form_description, form_choices, on_model_change
 class ChartModelView(AirflowModelView):
     route_base='/chart'
@@ -2004,9 +1988,24 @@ class ChartModelView(AirflowModelView):
     add_columns =  ['label', 'conn_id', 'chart_type', 'owner', 'last_modified']
     edit_columns = ['label', 'conn_id', 'chart_type', 'owner', 'last_modified']
     search_columns = ['label', 'owner', 'conn_id']
+
+    def label_link(attr):
+        default_params = attr.get('default_params')
+        iteration_no = attr.get('iteration_no')
+        id = attr.get('id')
+        label = attr.get('label')
+        try:
+            default_params = ast.literal_eval(default_params)
+        except:
+            default_params = {}
+        url = url_for(
+            'Airflow.chart', chart_id=id, iteration_no=iteration_no,
+            **default_params)
+        return Markup("<a href='{url}'>{label}</a>".format(**locals()))
+
     formatters_columns = {
-        # 'label': label_link,
-        'last_modified': datetime_f,
+        'label': label_link,
+        'last_modified': datetime_f('last_modified'),
     }
 
 
@@ -2029,23 +2028,6 @@ class KnownEventModelView(AirflowModelView):
         'end_date': [ validators.DataRequired(), GreaterEqualThan(fieldname='start_date') ],
         'reported_by': [ validators.DataRequired() ],
     }
-
-
-class KnownEventTypeView(AirflowModelView):
-    pass
-
-
-# NOTE: For debugging / troubleshooting
-# mv = KnowEventTypeView(
-#     models.KnownEventType,
-#     Session, name="Known Event Types", category="Manage")
-# admin.add_view(mv)
-# class DagPickleView(SuperUserMixin, ModelView):
-#     pass
-# mv = DagPickleView(
-#     models.DagPickle,
-#     Session, name="Pickles", category="Manage")
-# admin.add_view(mv)
 
 
 class XComModelView(AirflowModelView):
@@ -2109,7 +2091,6 @@ class ConnectionModelView(AirflowModelView):
         return redirect(self.get_redirect())
 
 
-# todo: fix formatters_columns to support multiple args
 class PoolModelView(AirflowModelView):
     route_base='/pool'
 
@@ -2127,22 +2108,36 @@ class PoolModelView(AirflowModelView):
         self.update_redirect()
         return redirect(self.get_redirect())
 
-    def pool_link(pool_id):
-        url = '/taskinstance/list/?_flt_3_pool=' + str(pool_id)
-        return Markup("<a href='{url}'>{pool_id}</a>".format(**locals()))
+    def pool_link(attr):
+        pool_id = attr.get('pool')
+        if pool_id is not None:
+            url = '/taskinstance/list/?_flt_3_pool=' + str(pool_id)
+            return Markup("<a href='{url}'>{pool_id}</a>".format(**locals()))
+        else:
+            return Markup('<span class="label label-danger">Invalid</span>')
 
-    def fused_slots(pool_id):
-        url = '/taskinstance/list/?_flt_3_pool=' + str(pool_id) + '&flt_2_state_equals=running'
-        return Markup("<a href='{url}'>{pool_id}</a>".format(**locals()))
+    def fused_slots(attr):
+        pool_id = attr.get('pool')
+        used_slots = attr.get('used_slots')
+        if pool_id is not None and used_slots is not None:
+            url = '/taskinstance/list/?_flt_3_pool=' + str(pool_id) + '&_flt_3_state=running'
+            return Markup("<a href='{url}'>{used_slots}</a>".format(**locals()))
+        else:
+            return Markup('<span class="label label-danger">Invalid</span>')
 
-    def fqueued_slots(pool_id):
-        url = '/taskinstance/list/?_flt_3_pool=' + str(pool_id) + '&flt_2_state_equals=queued&sort=10&desc=1'
-        return Markup("<a href='{url}'>{pool_id}</a>".format(**locals()))
+    def fqueued_slots(attr):
+        pool_id = attr.get('pool')
+        queued_slots = attr.get('queued_slots')
+        if pool_id is not None and queued_slots is not None:
+            url = '/taskinstance/list/?_flt_3_pool=' + str(pool_id) + '&_flt_3_state=queued'
+            return Markup("<a href='{url}'>{queued_slots}</a>".format(**locals()))
+        else:
+            return Markup('<span class="label label-danger">Invalid</span>')
 
     formatters_columns = {
         'pool': pool_link,
-        # 'used_slots': fused_slots,
-        # 'queued_slots': fqueued_slots
+        'used_slots': fused_slots,
+        'queued_slots': fqueued_slots
     }
 
     validators_columns = {
@@ -2152,7 +2147,6 @@ class PoolModelView(AirflowModelView):
 
 # todo: implement on_form_prefill to register custom field input
 # todo: configure form_widget_args
-# todo: fix formatters_columns to support multiple args
 class VariableModelView(AirflowModelView):
     route_base='/variable'
 
@@ -2165,16 +2159,18 @@ class VariableModelView(AirflowModelView):
 
     base_order = ('key', 'asc')
 
-    def hidden_field_formatter(key, val):
+    def hidden_field_formatter(attr):
+        key = attr.get('key')
+        val = attr.get('val')
         if wwwutils.should_hide_value_for_key(key):
             return Markup('*' * 8)
-        try:
+        if val:
             return val
-        except AirflowException:
+        else:
             return Markup('<span class="label label-danger">Invalid</span>')
 
     formatters_columns = {
-        # 'val': hidden_field_formatter,
+        'val': hidden_field_formatter,
     }
 
     validators_columns = {
@@ -2217,15 +2213,14 @@ class JobModelView(AirflowModelViewReadOnly):
     base_order = ('start_date', 'desc')
 
     formatters_columns = {
-        'start_date': datetime_f,
-        'end_date': datetime_f,
-        'hostname': nobr_f,
+        'start_date': datetime_f('start_date'),
+        'end_date': datetime_f('end_date'),
+        'hostname': nobr_f('hostname'),
         'state': state_f,
-        'latest_heartbeat': datetime_f
+        'latest_heartbeat': datetime_f('latest_heartbeat'),
     }
 
 
-# todo: fix formatters_columns to support multiple args
 # todo: remove delete capability
 class DagRunModelView(AirflowModelView):
     route_base='/dagrun'
@@ -2243,10 +2238,10 @@ class DagRunModelView(AirflowModelView):
     base_order = ('execution_date', 'desc')
     
     formatters_columns = {
-        'execution_date': datetime_f,
+        'execution_date': datetime_f('execution_date'),
         'state': state_f,
-        'start_date': datetime_f,
-        # 'dag_id':dag_link,
+        'start_date': datetime_f('start_date'),
+        'dag_id':dag_link,
     }
 
     validators_columns = {
@@ -2301,7 +2296,6 @@ class DagRunModelView(AirflowModelView):
         return redirect(self.route_base + '/list')
 
 
-# todo: fix formatters_columns to support multiple args
 class LogModelView(AirflowModelViewReadOnly):
     route_base = '/log'
 
@@ -2313,13 +2307,12 @@ class LogModelView(AirflowModelViewReadOnly):
     base_order = ('dttm', 'desc')
 
     formatters_columns = {
-        'dttm': datetime_f,
-        'execution_date':datetime_f,
-        # 'dag_id':dag_link,
+        'dttm': datetime_f('dttm'),
+        'execution_date':datetime_f('execution_date'),
+        'dag_id':dag_link,
     }
 
 
-# todo: fix formatters_columns to support multiple args
 # todo: add back get_one method if necessary
 class TaskInstanceModelView(AirflowModelViewReadOnly):
     route_base='/taskinstance'
@@ -2330,7 +2323,7 @@ class TaskInstanceModelView(AirflowModelViewReadOnly):
     list_columns = ['state', 'dag_id', 'task_id', 'execution_date', 'operator',
         'start_date', 'end_date', 'duration', 'job_id', 'hostname',
         'unixname', 'priority_weight', 'queue', 'queued_dttm', 'try_number',
-        'pool']
+        'pool', 'log_url']
     add_columns = ['state', 'dag_id', 'task_id', 'execution_date', 'operator',
         'start_date', 'end_date', 'duration', 'job_id', 'hostname',
         'unixname', 'priority_weight', 'queue', 'queued_dttm', 'try_number',
@@ -2344,17 +2337,30 @@ class TaskInstanceModelView(AirflowModelViewReadOnly):
 
     base_order = ('job_id', 'asc')
 
+    def log_url_formatter(attr):
+        log_url = attr.get('log_url')
+        return Markup(
+            '<a href="{log_url}">'
+            '    <span class="glyphicon glyphicon-book" aria-hidden="true">'
+            '</span></a>').format(**locals())
+
+    def duration_f(attr):
+        end_date = attr.get('end_date')
+        duration = attr.get('duration')
+        if end_date and duration:
+            return timedelta(seconds=duration)
+
     formatters_columns = {
         'log_url': log_url_formatter,
-        # 'task_id': task_instance_link,
-        'hostname': nobr_f,
+        'task_id': task_instance_link,
+        'hostname': nobr_f('hostname'),
         'state': state_f,
-        'execution_date': datetime_f,
-        'start_date': datetime_f,
-        'end_date': datetime_f,
-        'queued_dttm': datetime_f,
+        'execution_date': datetime_f('execution_date'),
+        'start_date': datetime_f('start_date'),
+        'end_date': datetime_f('end_date'),
+        'queued_dttm': datetime_f('queued_dttm'),
         'dag_id': dag_link,
-        # 'duration': duration_f,
+        'duration': duration_f,
     }
 
     @provide_session
@@ -2568,7 +2574,6 @@ class QueryView(AirflowBaseView):
             has_data=has_data)
 
 
-# todo: fix formatters_columns to support multiple args
 class DagModelView(AirflowModelView):
     route_base='/dagmodel'
 
@@ -2582,7 +2587,7 @@ class DagModelView(AirflowModelView):
                     'last_expired', 'scheduler_lock', 'fileloc', 'owners']
 
     formatters_columns = {
-        # 'dag_id': dag_link
+        'dag_id': dag_link
     }
 
     def get_query(self):

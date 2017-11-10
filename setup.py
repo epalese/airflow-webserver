@@ -157,7 +157,7 @@ def do_setup():
 		zip_safe=False,
 		url='https://github.com/wepay/airflow-webserver.git',
 		install_requires=[
-            'airflow>=1.9.0'
+#            'airflow>=1.9.0'
             'alembic>=0.8.3, <0.9',
             'bleach==2.0.0',
             'configparser>=3.5.0, <3.6.0',
