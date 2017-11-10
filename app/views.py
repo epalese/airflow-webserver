@@ -37,13 +37,13 @@ import sqlalchemy as sqla
 from sqlalchemy import or_, desc, and_, union_all
 
 from flask import (
-    g, redirect, url_for, request, Markup, Response, current_app, render_template, make_response, abort, flash)
+    g, redirect, url_for, request, Markup, Response, current_app, render_template,
+    make_response, abort, flash)
 from flask._compat import PY2
 
 from flask_appbuilder import BaseView, ModelView, IndexView, expose, has_access, AppBuilder
 from flask_appbuilder.models.sqla.interface import SQLAInterface
 from flask_appbuilder.actions import action
-from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, BS3PasswordFieldWidget
 from flask_appbuilder.widgets import RenderTemplateWidget
 
 from flask_babel import lazy_gettext
@@ -54,8 +54,7 @@ from jinja2 import escape
 import markdown
 import nvd3
 
-from wtforms import (
-    Form, SelectField, TextAreaField, PasswordField, StringField, TextField, validators)
+from wtforms import Form, SelectField, TextAreaField, validators
 
 from pygments import highlight, lexers
 from pygments.formatters import HtmlFormatter
@@ -78,11 +77,11 @@ from airflow.utils.state import State
 from airflow.utils.db import provide_session
 from airflow.utils.helpers import alchemy_to_dict
 from airflow.utils.dates import infer_time_unit, scale_time_units
-from airflow.www import utils as wwwutils
-from airflow.www.forms import DateTimeForm, DateTimeWithNumRunsForm
-from airflow.www.validators import GreaterEqualThan
 
 from app import appbuilder, db
+from app.forms import DateTimeForm, DateTimeWithNumRunsForm, DagRunForm, ConnectionForm
+from app.validators import GreaterEqualThan
+from app import utils as wwwutils
 
 QUERY_LIMIT = 100000
 CHART_LIMIT = 200000
@@ -2056,26 +2055,6 @@ class ConnectionModelView(AirflowModelView):
 
     datamodel = CustomSQLAInterfaceWrapper(models.Connection)
 
-    # Used to customized the form, the forms elements get rendered
-    # and results are stored in the extra field as json. All of these
-    # need to be prefixed with extra__ and then the conn_type ___ as in
-    # extra__{conn_type}__name. You can also hide form elements and rename
-    # others from the connection_form.js file
-    add_form_extra_fields = {
-        'extra__jdbc__drv_path': StringField(
-            lazy_gettext('Driver Path'), widget=BS3TextFieldWidget()),
-        'extra__jdbc__drv_clsname': StringField(
-            lazy_gettext('Driver Class'), widget=BS3TextFieldWidget()),
-        'extra__google_cloud_platform__project': StringField(
-            lazy_gettext('Project Id'), widget=BS3TextFieldWidget()),
-        'extra__google_cloud_platform__key_path': StringField(
-            lazy_gettext('Keyfile Path'), widget=BS3TextFieldWidget()),
-        'extra__google_cloud_platform__keyfile_dict': PasswordField(
-            lazy_gettext('Keyfile JSON'), widget=BS3PasswordFieldWidget()),
-        'extra__google_cloud_platform__scope': StringField(
-            lazy_gettext('Scopes (comma separated)'), widget=BS3TextFieldWidget()),
-    }
-    edit_form_extra_fields = add_form_extra_fields
     list_columns = ['conn_id', 'conn_type', 'host', 'port', 'is_encrypted', 'is_extra_encrypted']
     add_columns = ['conn_id', 'conn_type', 'host', 'schema', 'login', 'password', 'port', 'extra',
                    'extra__jdbc__drv_path', 'extra__jdbc__drv_clsname', 'extra__google_cloud_platform__project',
@@ -2083,6 +2062,8 @@ class ConnectionModelView(AirflowModelView):
                    'extra__google_cloud_platform__scope']
     edit_columns = add_columns
     base_order = ('conn_id', 'asc')
+
+    add_form = edit_form = ConnectionForm
 
     @action('muldelete', 'Delete', 'Are you sure you want to delete selected records?', single=False)
     def action_muldelete(self, items):
@@ -2221,7 +2202,6 @@ class JobModelView(AirflowModelViewReadOnly):
     }
 
 
-# todo: remove delete capability
 class DagRunModelView(AirflowModelView):
     route_base='/dagrun'
 
@@ -2234,9 +2214,11 @@ class DagRunModelView(AirflowModelView):
     add_columns = ['state', 'dag_id', 'execution_date', 'start_date', 'end_date', 'run_id', 'external_trigger']
     edit_columns = ['state', 'dag_id', 'execution_date', 'start_date', 'end_date', 'run_id', 'external_trigger']
     search_columns = ['state', 'dag_id', 'execution_date', 'run_id', 'external_trigger']
-    
+
     base_order = ('execution_date', 'desc')
-    
+
+    add_form = edit_form = DagRunForm
+
     formatters_columns = {
         'execution_date': datetime_f('execution_date'),
         'state': state_f,
@@ -2244,9 +2226,9 @@ class DagRunModelView(AirflowModelView):
         'dag_id':dag_link,
     }
 
-    validators_columns = {
-        'dag_id': [ validators.DataRequired() ]
-    }
+    # validators_columns = {
+    #     'dag_id': [ validators.DataRequired() ]
+    # }
 
     @action('muldelete', "Delete", "Are you sure you want to delete selected records?", single=False)
     def action_muldelete(self, items):
