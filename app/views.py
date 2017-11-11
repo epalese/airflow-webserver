@@ -44,7 +44,7 @@ from flask._compat import PY2
 from flask_appbuilder import BaseView, ModelView, IndexView, expose, has_access, AppBuilder
 from flask_appbuilder.models.sqla.interface import SQLAInterface
 from flask_appbuilder.actions import action
-from flask_appbuilder.widgets import RenderTemplateWidget
+from flask_appbuilder.widgets import RenderTemplateWidget, FormWidget
 
 from flask_babel import lazy_gettext
 
@@ -2047,8 +2047,6 @@ class XComModelView(AirflowModelView):
         return redirect(self.get_redirect())
 
 
-# todo: add drop-down option for connection_type
-# todo: enable using different form for different conn type
 # todo: implement on_form_prefill to register custom field input
 class ConnectionModelView(AirflowModelView):
     route_base='/connection'
@@ -2056,14 +2054,15 @@ class ConnectionModelView(AirflowModelView):
     datamodel = CustomSQLAInterfaceWrapper(models.Connection)
 
     list_columns = ['conn_id', 'conn_type', 'host', 'port', 'is_encrypted', 'is_extra_encrypted']
-    add_columns = ['conn_id', 'conn_type', 'host', 'schema', 'login', 'password', 'port', 'extra',
+    add_columns = edit_columns = ['conn_id', 'conn_type', 'host', 'schema', 'login', 'password', 'port', 'extra',
                    'extra__jdbc__drv_path', 'extra__jdbc__drv_clsname', 'extra__google_cloud_platform__project',
                    'extra__google_cloud_platform__key_path', 'extra__google_cloud_platform__keyfile_dict',
                    'extra__google_cloud_platform__scope']
-    edit_columns = add_columns
-    base_order = ('conn_id', 'asc')
-
     add_form = edit_form = ConnectionForm
+    add_template = 'airflow/conn_create.html'
+    edit_template = 'airflow/conn_edit.html'
+
+    base_order = ('conn_id', 'asc')
 
     @action('muldelete', 'Delete', 'Are you sure you want to delete selected records?', single=False)
     def action_muldelete(self, items):

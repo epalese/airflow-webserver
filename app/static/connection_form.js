@@ -38,15 +38,20 @@
                 'login': 'Username (or API Key)',
                 'schema': 'Database'
             }
-        }
+        },
+        docker: {
+            hidden_fields: ['port', 'schema'],
+            relabeling: {
+                'host': 'Registry URL',
+                'login': 'Username',
+            },
+        },
       }
       function connTypeChange(connectionType) {
-        $("div.form-group").removeClass("hide");
+        $(".hide").removeClass("hide");
         $.each($("[id^='extra__']"), function() {
             $(this).parent().parent().addClass('hide')
         });
-        // Somehow the previous command doesn't honor __
-        $("#extra").parent().parent().removeClass('hide')
         $.each($("[id^='extra__"+connectionType+"']"), function() {
             $(this).parent().parent().removeClass('hide')
         });

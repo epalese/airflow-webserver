@@ -23,16 +23,14 @@ from airflow import models
 
 from flask_appbuilder.fieldwidgets import DateTimePickerWidget
 from flask_appbuilder.forms import DynamicForm
-from flask_appbuilder.fieldwidgets import (
-    BS3TextFieldWidget, BS3TextAreaFieldWidget, BS3PasswordFieldWidget, Select2Widget,
-    DateTimePickerWidget)
+from flask_appbuilder.fieldwidgets import (BS3TextFieldWidget, BS3TextAreaFieldWidget,
+    BS3PasswordFieldWidget, Select2Widget, DateTimePickerWidget)
 from flask_babel import lazy_gettext
 from flask_wtf import Form
 
-from wtforms import (
-    Form, SelectField, TextAreaField, PasswordField, StringField, TextField, DateTimeField,
-    BooleanField, IntegerField, validators)
-
+from wtforms import Form, validators
+from wtforms.fields import (IntegerField, SelectField, TextAreaField, PasswordField,
+    StringField, TextField, DateTimeField, BooleanField)
 
 
 class DateTimeForm(Form):
@@ -84,20 +82,28 @@ class ConnectionForm(DynamicForm):
     conn_id = StringField(
         lazy_gettext('Conn Id'),
         widget=BS3TextFieldWidget())
-    conn_type = SelectField(lazy_gettext('Conn Type'),
+    conn_type = SelectField(
+        lazy_gettext('Conn Type'),
         choices=(models.Connection._types),
         widget=Select2Widget())
-    host = IntegerField(lazy_gettext('Host'),
+    host = StringField(
+        lazy_gettext('Host'),
         widget=BS3TextFieldWidget())
-    schema = StringField(lazy_gettext('Schema'),
+    schema = StringField(
+        lazy_gettext('Schema'),
         widget=BS3TextFieldWidget())
-    login = StringField(lazy_gettext('Login'),
+    login = StringField(
+        lazy_gettext('Login'),
         widget=BS3TextFieldWidget())
-    password = PasswordField(lazy_gettext('Password'),
+    password = PasswordField(
+        lazy_gettext('Password'),
         widget=BS3PasswordFieldWidget())
-    port = IntegerField(lazy_gettext('Port'),
+    port = IntegerField(
+        lazy_gettext('Port'),
+        validators=[validators.Optional()],
         widget=BS3TextFieldWidget())
-    extra = TextAreaField(lazy_gettext('Extra'),
+    extra = TextAreaField(
+        lazy_gettext('Extra'),
         widget=BS3TextAreaFieldWidget())
 
     # Used to customized the form, the forms elements get rendered
