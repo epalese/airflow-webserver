@@ -37,7 +37,7 @@ import sqlalchemy as sqla
 from sqlalchemy import or_, desc, and_, union_all
 
 from flask import (
-    g, redirect, url_for, request, Markup, Response, current_app, render_template,
+    g, redirect, url_for, request, Markup, Response, render_template,
     make_response, abort, flash)
 from flask._compat import PY2
 
@@ -94,7 +94,7 @@ FILTER_BY_OWNER = False
 
 if conf.getboolean('webserver', 'FILTER_BY_OWNER'):
     # filter_by_owner if authentication is enabled and filter_by_owner is true
-    FILTER_BY_OWNER = not current_app.config['LOGIN_DISABLED']
+    FILTER_BY_OWNER = not appbuilder.app.config['LOGIN_DISABLED']
 
 def task_instance_link(attr):
     dag_id = bleach.clean(attr.get('dag_id'))
@@ -193,22 +193,6 @@ attr_renderer = {
         inspect.getsource(x), lexers.PythonLexer),
 }
 
-
-def data_profiling_required(f):
-    """Decorator for views requiring data profiling access"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if (
-                current_app.config['LOGIN_DISABLED'] or
-                (not current_user.is_anonymous() and current_user.data_profiling())
-        ):
-            return f(*args, **kwargs)
-        else:
-            flash("This page requires data profiling privileges", "error")
-            return redirect(url_for('HomeView.index'))
-
-    return decorated_function
-
 def recurse_tasks(tasks, task_ids, dag_ids, task_id_to_dag):
     if isinstance(tasks, list):
         for task in tasks:
@@ -267,7 +251,6 @@ class Airflow(AirflowBaseView):
 
     @expose('/chart_data')
     @has_access
-    @data_profiling_required
     @wwwutils.gzipped
     # @cache.cached(timeout=3600, key_prefix=wwwutils.make_cache_key)
     def chart_data(self):
@@ -391,7 +374,7 @@ class Airflow(AirflowBaseView):
                         df[col] = df[col].astype(np.float)
 
                 df = df.fillna(0)
-                NVd3ChartClass = chart_mapping.get(chart.chart_type)
+                NVd3ChartClass = self.chart_mapping.get(chart.chart_type)
                 NVd3ChartClass = getattr(nvd3, NVd3ChartClass)
                 nvd3_chart = NVd3ChartClass(x_is_date=chart.x_is_date)
 
@@ -410,7 +393,6 @@ class Airflow(AirflowBaseView):
 
     @expose('/chart')
     @has_access
-    @data_profiling_required
     def chart(self):
         session = settings.Session()
         chart_id = request.args.get('chart_id')
@@ -420,7 +402,7 @@ class Airflow(AirflowBaseView):
         session.commit()
         session.close()
 
-        NVd3ChartClass = chart_mapping.get(chart.chart_type)
+        NVd3ChartClass = self.chart_mapping.get(chart.chart_type)
         if not NVd3ChartClass:
             flash(
                 "Not supported anymore as the license was incompatible, "
@@ -1977,58 +1959,6 @@ class SlaMissModelView(AirflowModelViewReadOnly):
     }
 
 
-# todo: fix add/edit page for chartview
-# todo: add support for form_description, form_choices, on_model_change
-class ChartModelView(AirflowModelView):
-    route_base='/chart'
-
-    datamodel = SQLAInterface(models.Chart)
-    list_columns = ['label', 'conn_id', 'chart_type', 'owner', 'last_modified']
-    add_columns =  ['label', 'conn_id', 'chart_type', 'owner', 'last_modified']
-    edit_columns = ['label', 'conn_id', 'chart_type', 'owner', 'last_modified']
-    search_columns = ['label', 'owner', 'conn_id']
-
-    def label_link(attr):
-        default_params = attr.get('default_params')
-        iteration_no = attr.get('iteration_no')
-        id = attr.get('id')
-        label = attr.get('label')
-        try:
-            default_params = ast.literal_eval(default_params)
-        except:
-            default_params = {}
-        url = url_for(
-            'Airflow.chart', chart_id=id, iteration_no=iteration_no,
-            **default_params)
-        return Markup("<a href='{url}'>{label}</a>".format(**locals()))
-
-    formatters_columns = {
-        'label': label_link,
-        'last_modified': datetime_f('last_modified'),
-    }
-
-
-class KnownEventModelView(AirflowModelView):
-    route_base='/knownevent'
-
-    datamodel = SQLAInterface(models.KnownEvent)
-
-    list_columns = ['label', 'event_type', 'start_date', 'end_date', 'reported_by',]
-    add_columns = ['label', 'event_type', 'start_date', 'end_date', 'reported_by', 'description']
-    edit_columns = ['label', 'event_type', 'start_date', 'end_date', 'reported_by', 'description']
-    search_columns = ['label', 'event_type', 'start_date', 'end_date', 'reported_by', 'description']
-
-    base_order = ('start_date', 'desc')
-
-    validators_columns = {
-        'label': [ validators.DataRequired() ],
-        'event_type': [ validators.DataRequired() ],
-        'start_date': [ validators.DataRequired() ],
-        'end_date': [ validators.DataRequired(), GreaterEqualThan(fieldname='start_date') ],
-        'reported_by': [ validators.DataRequired() ],
-    }
-
-
 class XComModelView(AirflowModelView):
     route_base='/xcom'
 
@@ -2483,76 +2413,6 @@ class ConfigurationView(AirflowBaseView):
                 pre_subtitle=settings.HEADER + "  v" + airflow.__version__,
                 code_html=code_html, title=title, subtitle=subtitle,
                 table=table)
-
-
-class QueryView(AirflowBaseView):
-    route_base = '/'
-
-    @wwwutils.gzipped
-    @expose('query', methods=['POST', 'GET'])
-    @has_access
-    def query(self):
-        session = settings.Session()
-        dbs = session.query(models.Connection).order_by(
-            models.Connection.conn_id).all()
-        session.expunge_all()
-        db_choices = list(
-            ((db.conn_id, db.conn_id) for db in dbs if db.get_hook()))
-        conn_id_str = request.form.get('conn_id')
-        csv = request.form.get('csv') == "true"
-        sql = request.form.get('sql')
-
-        class QueryForm(Form):
-            conn_id = SelectField("Layout", choices=db_choices)
-            sql = TextAreaField("SQL", widget=wwwutils.AceEditorWidget())
-
-        data = {
-            'conn_id': conn_id_str,
-            'sql': sql,
-        }
-        results = None
-        has_data = False
-        error = False
-        if conn_id_str:
-            db = [db for db in dbs if db.conn_id == conn_id_str][0]
-            hook = db.get_hook()
-            try:
-                df = hook.get_pandas_df(wwwutils.limit_sql(sql, QUERY_LIMIT, conn_type=db.conn_type))
-                # df = hook.get_pandas_df(sql)
-                has_data = len(df) > 0
-                df = df.fillna('')
-                results = df.to_html(
-                    classes=[
-                        'table', 'table-bordered', 'table-striped', 'no-wrap'],
-                    index=False,
-                    na_rep='',
-                ) if has_data else ''
-            except Exception as e:
-                flash(str(e), 'error')
-                error = True
-
-        if has_data and len(df) == QUERY_LIMIT:
-            flash(
-                "Query output truncated at " + str(QUERY_LIMIT) +
-                " rows", 'info')
-
-        if not has_data and error:
-            flash('No data', 'error')
-
-        if csv:
-            return Response(
-                response=df.to_csv(index=False),
-                status=200,
-                mimetype="application/text")
-
-        form = QueryForm(request.form, data=data)
-        session.commit()
-        session.close()
-        return self.render(
-            'airflow/query.html', form=form,
-            title="Ad Hoc Query",
-            results=results or '',
-            has_data=has_data)
 
 
 class DagModelView(AirflowModelView):
