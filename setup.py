@@ -28,6 +28,7 @@ def do_setup():
         zip_safe=False,
         url='https://github.com/wepay/airflow-webserver.git',
         install_requires=[
+	    # this airflow package is hosted in our private PyPI repo
             'apache-airflow==1.9.0.6',
             'flask-appbuilder==1.9.4',
         ],
