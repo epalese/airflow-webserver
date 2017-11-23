@@ -1,14 +1,25 @@
+# -*- coding: utf-8 -*-
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import logging
 import six
+import socket
+from airflow import settings
 from flask import Flask, redirect
 from flask_appbuilder import SQLA, AppBuilder, IndexView, expose
 from flask_wtf.csrf import CSRFProtect
 
-
-"""
- Logging configuration
-"""
-# TODO: streamline logging
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -19,7 +30,6 @@ csrf = CSRFProtect()
 csrf.init_app(app)
 
 db = SQLA(app)
-
 
 """
  Set up blueprints
@@ -35,8 +45,18 @@ if app.config['TESTING']:
     else:
         import importlib
         importlib.reload(e)
+
 app.register_blueprint(e.api_experimental, url_prefix='/api/experimental')
 
+@app.context_processor
+def jinja_globals():
+    return {
+        'hostname': socket.getfqdn(),
+    }
+
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    settings.Session.remove()
 
 """
  Set up index page
@@ -85,7 +105,6 @@ appbuilder.add_link("Documentation", href='http://pythonhosted.org/airflow/', ca
 appbuilder.add_link("Github", href='https://github.com/apache/incubator-airflow', category="Docs")
 
 appbuilder.add_link('Version', href='/version', category='About', category_icon='fa-th')
-
 
 """
  Initialize Role-Based Access Control

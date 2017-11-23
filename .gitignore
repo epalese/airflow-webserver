@@ -16,3 +16,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.pyc
+*.pot
+*.swp
+babel/
