@@ -2051,7 +2051,8 @@ class PoolModelView(AirflowModelView):
     }
 
     validators_columns = {
-        'pool': [ validators.DataRequired() ]
+        'pool': [ validators.DataRequired() ],
+        'slots': [ validators.NumberRange(min=0) ]
     }
 
 
