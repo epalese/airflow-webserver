@@ -25,6 +25,7 @@ def do_setup():
         description='Airflow Webserver',
         version=version,
         packages=find_packages(exclude=['tests*']),
+        include_package_data=True,
         zip_safe=False,
         url='https://github.com/wepay/airflow-webserver.git',
         install_requires=[
