@@ -12,16 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import six
 import socket
 from airflow import settings
 from flask import Flask, redirect
 from flask_appbuilder import SQLA, AppBuilder, IndexView, expose
 from flask_wtf.csrf import CSRFProtect
-
-logging.basicConfig(format='%(asctime)s:%(levelname)s:%(name)s:%(message)s')
-logging.getLogger().setLevel(logging.DEBUG)
 
 app = Flask(__name__)
 app.config.from_object('config')

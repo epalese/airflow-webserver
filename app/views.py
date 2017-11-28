@@ -651,7 +651,7 @@ class Airflow(AirflowBaseView):
         if ti is None:
             logs = ["*** Task instance did not exist in the DB\n"]
         else:
-            logger = logging.getLogger('Airflow.task')
+            logger = logging.getLogger('airflow.task')
             task_log_reader = conf.get('core', 'task_log_reader')
             handler = next((handler for handler in logger.handlers
                             if handler.name == task_log_reader), None)
