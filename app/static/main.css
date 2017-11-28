@@ -16,10 +16,14 @@
 * specific language governing permissions and limitations
 * under the License.
 */
+body { padding-top: 70px; }
 
-.container {
+div.container {
     width: 98%;
+    padding-left: 15px;
+    padding-right: 15px;
 }
+
 a.navbar-brand span {
     color: white;
 }
