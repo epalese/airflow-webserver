@@ -1731,7 +1731,7 @@ class Airflow(AirflowBaseView):
             for k, v in d.items():
                 models.Variable.set(k, v, serialize_json=isinstance(v, dict))
             flash("{} variable(s) successfully updated.".format(len(d)))
-        return redirect('/variable')
+        return redirect('/variable/list')
 
 
 class HomeView(AirflowBaseView):
@@ -2060,6 +2060,8 @@ class PoolModelView(AirflowModelView):
 # todo: configure form_widget_args
 class VariableModelView(AirflowModelView):
     route_base='/variable'
+
+    list_template = 'airflow/variable_list.html'
 
     datamodel = CustomSQLAInterfaceWrapper(models.Variable)
 
