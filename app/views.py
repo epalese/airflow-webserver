@@ -660,7 +660,7 @@ class Airflow(AirflowBaseView):
                 logs = handler.read(ti)
             except AttributeError as e:
                 logs = ["Task log handler {} does not support read logs.\n{}\n" \
-                            .format(task_log_reader, e.message)]
+                            .format(task_log_reader, str(e))]
 
         for i, log in enumerate(logs):
             if PY2 and not isinstance(log, unicode):
